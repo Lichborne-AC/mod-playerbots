@@ -647,14 +647,12 @@ public:
     TravelNodeRoute GetNodeRoute(TravelNode* start, TravelNode* goal,
                                  Player* bot);
 
-    // Find the nearest start/end nodes for two world positions
-    TravelNodeRoute GetNearestNodes(WorldPosition startPos,
-                                    WorldPosition endPos,
-                                    std::vector<WorldPosition>& startPath,
-                                    Player* bot = nullptr);
-
-    // Manage/update nodes
-    void manageNodes(Unit* bot, bool mapFull = false);
+    // Picks the nearest start/end nodes for two world positions and runs A*
+    // over the node graph to return a full route between them.
+    TravelNodeRoute FindRouteNearestNodes(WorldPosition startPos,
+                                          WorldPosition endPos,
+                                          std::vector<WorldPosition>& startPath,
+                                          Player* bot = nullptr);
 
     void setHasToGen() { hasToGen = true; }
 

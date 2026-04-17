@@ -2997,6 +2997,14 @@ bool MovementAction::CheckSplineProgress(TravelPlan& state)
     if (!state.splineActive)
         return false;
 
+    // walkPoints may have been cleared by a map transfer or external reset
+    // while the spline was still flagged active; bail out safely.
+    if (state.walkPoints.empty())
+    {
+        state.splineActive = false;
+        return false;
+    }
+
     if (bot->movespline->Finalized())
     {
         G3D::Vector3 const& endPt = state.walkPoints.back();
@@ -3009,7 +3017,7 @@ bool MovementAction::CheckSplineProgress(TravelPlan& state)
             return true;  // Arrived
         }
 
-        // If we havent arrived to destination, but are done moving then something interrupted it.
+        // If we haven't arrived to destination, but are done moving then something interrupted it.
         // Need to restart. Reset state
         state.splineActive = false;
         return false;
@@ -3226,7 +3234,7 @@ bool MovementAction::ExecuteTravelPlan(TravelPlan& state)
             if (dist > INTERACTION_DISTANCE)
                 return MoveTo(src.point.GetMapId(), src.point.GetPositionX(), src.point.GetPositionY(), src.point.GetPositionZ());
 
-            // At portal, but havent teleported though
+            // At portal, but haven't teleported through
             TeleportFallback(state, dst.point, "portal walk-through");
             state.stepIdx += 2;
             return true;
@@ -3368,6 +3376,14 @@ bool MovementAction::ExecuteTravelPlan(TravelPlan& state)
             TeleportFallback(state, dst.point, "flying mount not implemented");
             state.stepIdx += 2;
             return true;
+        }
+        default:
+        {
+            LOG_ERROR("playerbots",
+                "[TravelPlan] Bot {} encountered unknown PathNodeType ({}); resetting plan",
+                bot->GetName(), static_cast<uint32>(pt.type));
+            state.Reset();
+            return false;
         }
     }
     return false;

@@ -115,25 +115,25 @@ float TravelNodePath::getCost(Player* bot, uint32 cGold)
         if (getPathType() == TravelNodePathType::flightPath && pathObject)
         {
             if (!bot->IsAlive())
-                return -1;
+                return -1.0f;
 
             TaxiPathEntry const* taxiPath = sTaxiPathStore.LookupEntry(pathObject);
 
             if (!taxiPath)
-                return -1;
+                return -1.0f;
 
             if (!bot->isTaxiCheater() && taxiPath->price > cGold)
-                return -1;
+                return -1.0f;
 
             if (!bot->isTaxiCheater() && !bot->m_taxi.IsTaximaskNodeKnown(taxiPath->to))
-                return -1;
+                return -1.0f;
 
             TaxiNodesEntry const* startTaxiNode = sTaxiNodesStore.LookupEntry(taxiPath->from);
             TaxiNodesEntry const* endTaxiNode = sTaxiNodesStore.LookupEntry(taxiPath->to);
             if (!startTaxiNode || !endTaxiNode ||
                 !startTaxiNode->MountCreatureID[bot->GetTeamId() == TEAM_ALLIANCE ? 1 : 0] ||
                 !endTaxiNode->MountCreatureID[bot->GetTeamId() == TEAM_ALLIANCE ? 1 : 0])
-                return -1;
+                return -1.0f;
         }
 
         speed = bot->GetSpeed(MOVE_RUN);
@@ -164,7 +164,7 @@ float TravelNodePath::getCost(Player* bot, uint32 cGold)
         if (getPathType() == TravelNodePathType::flyingMount)
         {
             if (!bot->IsAlive() || bot->GetLevel() < 70 || !bot->CanFly())
-                return -1;
+                return -1.0f;
 
             float flySpeed = bot->GetSpeed(MOVE_FLIGHT);
             if (flySpeed < 1.0f)
@@ -173,7 +173,7 @@ float TravelNodePath::getCost(Player* bot, uint32 cGold)
         }
     }
     else if (getPathType() == TravelNodePathType::flightPath || getPathType() == TravelNodePathType::flyingMount)
-        return -1;
+        return -1.0f;
 
     if (getPathType() != TravelNodePathType::walk)
         timeCost = extraCost * modifier;
@@ -1097,7 +1097,12 @@ TravelNodeRoute TravelNodeMap::GetNodeRoute(TravelNode* start, TravelNode* goal,
     while (!open.empty())
     {
         if (++nodesExplored > MAX_A_STAR_EXPLORED)
+        {
+            LOG_DEBUG("playerbots",
+                "[TravelNode A*] Exceeded MAX_A_STAR_EXPLORED ({}); truncating route from '{}' to '{}'",
+                MAX_A_STAR_EXPLORED, start->getName(), goal->getName());
             return TravelNodeRoute();
+        }
 
         std::pop_heap(open.begin(), open.end(), heapComp);
         currentNode = open.back();
@@ -1164,7 +1169,7 @@ TravelNodeRoute TravelNodeMap::GetNodeRoute(TravelNode* start, TravelNode* goal,
     return TravelNodeRoute();
 }
 
-TravelNodeRoute TravelNodeMap::GetNearestNodes(WorldPosition startPos, WorldPosition endPos,
+TravelNodeRoute TravelNodeMap::FindRouteNearestNodes(WorldPosition startPos, WorldPosition endPos,
                                             std::vector<WorldPosition>& startPath, Player* bot)
 {
     if (nodes.empty() || !bot)
@@ -1373,14 +1378,6 @@ TravelNode* TravelNodeMap::addRandomExtNode(TravelNode* startNode)
     }
 
     return nullptr;
-}
-
-void TravelNodeMap::manageNodes(Unit* bot, bool mapFull)
-{
-    // Runtime node mutation disabled — the graph is fully built at startup via Init()
-    // and .generate. Taking a unique_lock here caused 100-250ms contention spikes for
-    // all bot threads holding shared_locks in TravelPlan.
-    // Node pruning/creation is still available via the .generate console command.
 }
 
 void TravelNodeMap::generateNpcNodes()
@@ -1943,6 +1940,14 @@ void TravelNodeMap::generateAll()
 
 void TravelNodeMap::Init()
 {
+    InitTaxiGraph();
+
+    if (!sPlayerbotAIConfig.enableTravelNodes)
+    {
+        LOG_INFO("playerbots", "TravelNodeMap: travel node system disabled via AiPlayerbot.EnableTravelNodes=0 — skipping node load/generate/index.");
+        return;
+    }
+
     LoadNodeStore();
     calcMapOffset();
 
@@ -1961,7 +1966,6 @@ void TravelNodeMap::Init()
 
     BuildZoneIndex();
     PrecomputeReachability();
-    InitTaxiGraph();
     LOG_INFO("playerbots", "TravelNodeMap initialized: {} nodes, zone index and reachability built.",
              nodes.size());
 }
