@@ -3327,16 +3327,26 @@ bool MovementAction::ExecuteTravelPlan(TravelPlan& state)
                 }
             }
 
-            Creature* flightMaster = sTravelMgr.GetNearestFlightMaster(bot);
-            if (!flightMaster || !flightMaster->IsAlive())
+            TravelMgr::FlightMasterInfo const* fmInfo = sTravelMgr.GetNearestFlightMasterInfo(bot);
+            if (!fmInfo)
             {
                 state.route.clear();
                 state.stepIdx += 2;
                 return true;
             }
 
-            if (bot->GetDistance(flightMaster) > INTERACTION_DISTANCE)
-                return MoveTo(flightMaster, INTERACTION_DISTANCE);
+            if (bot->GetDistance(fmInfo->pos) > INTERACTION_DISTANCE)
+                return MoveTo(fmInfo->pos.GetMapId(), fmInfo->pos.GetPositionX(),
+                              fmInfo->pos.GetPositionY(), fmInfo->pos.GetPositionZ());
+
+            ObjectGuid fmGuid = ObjectGuid::Create<HighGuid::Unit>(fmInfo->templateEntry, fmInfo->dbGuid);
+            Creature* flightMaster = ObjectAccessor::GetCreature(*bot, fmGuid);
+            if (!flightMaster || !flightMaster->IsAlive())
+            {
+                state.route.clear();
+                state.stepIdx += 2;
+                return true;
+            }
 
             botAI->RemoveShapeshift();
             if (bot->IsMounted())
