@@ -1251,16 +1251,11 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
 
         if (!strcmp(cmd, "addaccount"))
         {
-            // When using addaccount, first try to get account ID directly.
-            // Account names are case-insensitive on the auth side, so try
-            // the raw token before falling back to a normalized character
-            // name lookup.
+            // When using addaccount, first try to get account ID directly
             uint32 accountId = GetAccountId(s);
             if (!accountId)
             {
-                // If not found, try to get account ID from character name.
-                // Character names are stored canonically (first letter upper,
-                // rest lower), so normalize the user input before lookup.
+                // If not found, try to get account ID from character name
                 std::string charName = s;
                 if (!normalizePlayerName(charName))
                 {
@@ -1294,10 +1289,7 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
         }
         else
         {
-            // Character names in the cache are keyed by canonical form
-            // (first letter upper, rest lower). Normalize the user input
-            // so commands like `.playerbots bot add jared` resolve to the
-            // cached `Jared` entry instead of failing with a not-found.
+            // For regular add command, only add the specific character
             if (!normalizePlayerName(s))
             {
                 messages.push_back("Character '" + *i + "' not found");
